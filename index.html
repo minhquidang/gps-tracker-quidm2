@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a73e8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>GPS Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f4ff; min-height: 100vh; color: #1c1c2e; }
+
+  header {
+    background: linear-gradient(135deg, #1a73e8, #0d47a1);
+    color: white; padding: 18px 20px 14px;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 2px 12px rgba(26,115,232,0.35);
+    position: sticky; top: 0; z-index: 100;
+  }
+  header h1 { font-size: 1.2rem; font-weight: 700; }
+  header p  { font-size: 0.72rem; opacity: 0.8; margin-top: 1px; }
+
+  .container { padding: 16px; max-width: 600px; margin: 0 auto; }
+
+  .card {
+    background: white; border-radius: 18px; padding: 20px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.08); margin-bottom: 14px;
+  }
+  .card-label {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px;
+    color: #888; font-weight: 600; margin-bottom: 12px;
+  }
+
+  /* GPS */
+  .coords-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .coord-box { background: #f0f6ff; border: 1.5px solid #c5d8fb; border-radius: 12px; padding: 12px 14px; }
+  .coord-box .coord-label { font-size: 0.68rem; color: #1a73e8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+  .coord-box .coord-value { font-size: 1.05rem; font-weight: 700; color: #1c1c2e; font-family: 'Courier New', monospace; }
+  .coord-box .coord-value.placeholder { color: #bbb; font-size: 0.9rem; }
+  .accuracy-row { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: #555; margin-bottom: 14px; }
+  .accuracy-dot { width: 9px; height: 9px; border-radius: 50%; background: #ccc; flex-shrink: 0; transition: background 0.3s; }
+  .accuracy-dot.good { background: #34a853; box-shadow: 0 0 6px #34a85360; }
+  .accuracy-dot.fair { background: #fbbc04; box-shadow: 0 0 6px #fbbc0460; }
+  .accuracy-dot.bad  { background: #ea4335; box-shadow: 0 0 6px #ea433560; }
+
+  .btn-get-location {
+    width: 100%; background: linear-gradient(135deg, #1a73e8, #1558b0);
+    color: white; border: none; border-radius: 12px; padding: 13px;
+    font-size: 0.92rem; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .btn-get-location:active { transform: scale(0.98); opacity: 0.88; }
+  .btn-get-location:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Camera */
+  .camera-area { margin-bottom: 0; }
+  .photo-preview {
+    width: 100%; border-radius: 12px; overflow: hidden;
+    background: #f5f5f5; margin-bottom: 12px;
+    display: none; position: relative;
+  }
+  .photo-preview img { width: 100%; display: block; max-height: 260px; object-fit: cover; }
+  .photo-preview .remove-photo {
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(0,0,0,0.55); color: white; border: none;
+    border-radius: 50%; width: 28px; height: 28px; font-size: 14px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .camera-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .btn-cam {
+    border: none; border-radius: 12px; padding: 12px 10px;
+    font-size: 0.85rem; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .btn-cam:active { transform: scale(0.97); opacity: 0.85; }
+  .btn-cam-shoot { background: linear-gradient(135deg, #ea4335, #c0392b); color: white; }
+  .btn-cam-gallery { background: linear-gradient(135deg, #f0f4ff, #e3ecfd); color: #1a73e8; border: 1.5px solid #c5d8fb; }
+
+  /* Note */
+  textarea {
+    width: 100%; min-height: 75px; border: 1.5px solid #e0e0e0;
+    border-radius: 10px; padding: 12px; font-size: 0.9rem;
+    font-family: inherit; resize: vertical; outline: none; color: #1c1c2e;
+    transition: border-color 0.2s; background: #fafafa;
+  }
+  textarea:focus { border-color: #1a73e8; background: white; }
+  textarea::placeholder { color: #bbb; }
+
+  /* Actions */
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .btn {
+    border: none; border-radius: 12px; padding: 13px;
+    font-size: 0.88rem; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.97); opacity: 0.85; }
+  .btn-import { background: linear-gradient(135deg, #34a853, #278d42); color: white; }
+  .btn-copy   { background: linear-gradient(135deg, #f0f4ff, #e3ecfd); color: #1a73e8; border: 1.5px solid #c5d8fb; }
+
+  /* Table */
+  .table-card { background: white; border-radius: 18px; box-shadow: 0 2px 16px rgba(0,0,0,0.08); overflow: hidden; margin-bottom: 80px; }
+  .table-header { padding: 16px 20px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f0f0f0; }
+  .table-header-left { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #888; font-weight: 600; }
+  .record-count { font-size: 0.78rem; font-weight: 700; color: #1a73e8; background: #f0f6ff; padding: 3px 10px; border-radius: 20px; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; min-width: 520px; font-size: 0.8rem; }
+  thead th { background: #f8faff; padding: 10px 12px; text-align: left; font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.8px; color: #1a73e8; font-weight: 700; border-bottom: 1px solid #e8f0fe; }
+  tbody tr { border-bottom: 1px solid #f5f5f5; transition: background 0.15s; }
+  tbody tr:hover { background: #fafcff; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td { padding: 9px 12px; color: #333; font-family: 'Courier New', monospace; vertical-align: middle; }
+  tbody td.note-col { font-family: inherit; color: #555; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  tbody td.time-col { font-size: 0.72rem; color: #888; white-space: nowrap; font-family: inherit; }
+  tbody td.photo-col { padding: 6px 12px; }
+
+  .thumb {
+    width: 44px; height: 44px; border-radius: 8px; object-fit: cover;
+    cursor: pointer; border: 2px solid #e3ecfd;
+    transition: transform 0.15s;
+  }
+  .thumb:hover { transform: scale(1.08); }
+  .no-photo { color: #ccc; font-size: 0.75rem; }
+
+  .btn-del { background: none; border: none; color: #ea4335; cursor: pointer; padding: 4px 6px; border-radius: 6px; font-size: 1rem; transition: background 0.15s; }
+  .btn-del:hover { background: #fdecea; }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: #bbb; }
+  .empty-state svg { margin-bottom: 12px; opacity: 0.4; }
+  .empty-state p { font-size: 0.85rem; }
+
+  /* Lightbox */
+  .lightbox {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+    z-index: 9000; align-items: center; justify-content: center; padding: 20px;
+  }
+  .lightbox.show { display: flex; }
+  .lightbox img { max-width: 100%; max-height: 90vh; border-radius: 12px; object-fit: contain; }
+  .lightbox-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 50%; width: 36px; height: 36px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+  /* Export */
+  .export-bar { position: fixed; bottom: 0; left: 0; right: 0; padding: 12px 16px; background: white; border-top: 1px solid #eee; box-shadow: 0 -4px 20px rgba(0,0,0,0.08); z-index: 99; }
+  .btn-export {
+    width: 100%; max-width: 600px; margin: 0 auto; display: flex;
+    background: linear-gradient(135deg, #0d47a1, #1a73e8); color: white;
+    border: none; border-radius: 12px; padding: 14px; font-size: 0.92rem;
+    font-weight: 700; cursor: pointer; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.2s;
+  }
+  .btn-export:active { opacity: 0.85; }
+  .btn-export:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Toast */
+  .toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%) translateY(-20px); background: #1c1c2e; color: white; padding: 10px 20px; border-radius: 30px; font-size: 0.82rem; font-weight: 600; white-space: nowrap; opacity: 0; pointer-events: none; transition: all 0.3s; z-index: 9999; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.success { background: #34a853; }
+  .toast.error   { background: #ea4335; }
+  .toast.info    { background: #1a73e8; }
+
+  /* Hidden file input */
+  #file-camera, #file-gallery { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="10" r="4" fill="white" opacity="0.9"/>
+    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="white" opacity="0.4"/>
+    <circle cx="12" cy="10" r="2" fill="#1a73e8"/>
+  </svg>
+  <div>
+    <h1>GPS Tracker</h1>
+    <p>Ghi lại toạ độ · ảnh · ghi chú</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- GPS Card -->
+  <div class="card">
+    <div class="card-label">📍 Toạ độ hiện tại</div>
+    <div class="coords-row">
+      <div class="coord-box">
+        <div class="coord-label">Vĩ độ (Lat)</div>
+        <div class="coord-value placeholder" id="lat-display">--</div>
+      </div>
+      <div class="coord-box">
+        <div class="coord-label">Kinh độ (Lng)</div>
+        <div class="coord-value placeholder" id="lng-display">--</div>
+      </div>
+    </div>
+    <div class="accuracy-row">
+      <div class="accuracy-dot" id="acc-dot"></div>
+      <span id="acc-text">Chưa lấy vị trí</span>
+    </div>
+    <button class="btn-get-location" id="btn-locate" onclick="getLocation()">
+      <svg id="loc-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+        <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+        <circle cx="12" cy="12" r="7" opacity="0.4"/>
+      </svg>
+      <span id="btn-locate-text">Lấy vị trí GPS</span>
+    </button>
+  </div>
+
+  <!-- Camera Card -->
+  <div class="card camera-area">
+    <div class="card-label">📷 Chụp ảnh</div>
+    <div class="photo-preview" id="photo-preview">
+      <img id="preview-img" src="" alt="Ảnh đã chọn">
+      <button class="remove-photo" onclick="removePhoto()" title="Xoá ảnh">✕</button>
+    </div>
+    <div class="camera-btns">
+      <button class="btn-cam btn-cam-shoot" onclick="document.getElementById('file-camera').click()">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        Chụp ảnh
+      </button>
+      <button class="btn-cam btn-cam-gallery" onclick="document.getElementById('file-gallery').click()">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2.5">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        Thư viện
+      </button>
+    </div>
+    <input type="file" id="file-camera" accept="image/*" capture="environment" onchange="handlePhoto(this)">
+    <input type="file" id="file-gallery" accept="image/*" onchange="handlePhoto(this)">
+  </div>
+
+  <!-- Note Card -->
+  <div class="card">
+    <div class="card-label">📝 Ghi chú</div>
+    <textarea id="note-input" placeholder="Nhập ghi chú cho vị trí này…" rows="3"></textarea>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="btn btn-import" onclick="importRecord()">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+        <path d="M12 5v14M5 12l7 7 7-7"/>
+        <rect x="3" y="18" width="18" height="3" rx="1" fill="white" stroke="none" opacity="0.5"/>
+      </svg>
+      Import
+    </button>
+    <button class="btn btn-copy" onclick="copyCoords()">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2.5">
+        <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+      </svg>
+      Sao chép
+    </button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <div class="table-header">
+      <span class="table-header-left">📋 Dữ liệu đã lưu</span>
+      <span class="record-count" id="record-count">0 điểm</span>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Vĩ độ</th>
+            <th>Kinh độ</th>
+            <th>±(m)</th>
+            <th>Ảnh</th>
+            <th>Ghi chú</th>
+            <th>Thời gian</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr><td colspan="8">
+            <div class="empty-state">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                <circle cx="12" cy="9" r="2.5"/>
+              </svg>
+              <p>Chưa có dữ liệu nào.<br>Lấy vị trí rồi nhấn Import.</p>
+            </div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Export bar -->
+<div class="export-bar">
+  <button class="btn-export" id="btn-export" onclick="exportExcel()" disabled>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>
+    Xuất file Excel (.xlsx)
+  </button>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close">✕</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const STORAGE_KEY = 'gps_tracker_v2';
+  let currentLat = null, currentLng = null, currentAcc = null;
+  let currentPhotoBase64 = null;
+
+  let records = [];
+  try { const s = localStorage.getItem(STORAGE_KEY); if (s) records = JSON.parse(s); } catch(e) {}
+
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); } catch(e) {
+      showToast('Bộ nhớ đầy, không thể lưu ảnh lớn', 'error');
+    }
+  }
+
+  function showToast(msg, type='info') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = `toast ${type} show`;
+    clearTimeout(t._t); t._t = setTimeout(() => { t.className = 'toast'; }, 2500);
+  }
+
+  /* ---- GPS ---- */
+  function getLocation() {
+    if (!navigator.geolocation) { showToast('Thiết bị không hỗ trợ GPS', 'error'); return; }
+    const btn = document.getElementById('btn-locate');
+    btn.disabled = true;
+    document.getElementById('btn-locate-text').textContent = 'Đang định vị…';
+    document.getElementById('loc-icon').outerHTML = '<div class="spinner" id="loc-icon"></div>';
+
+    navigator.geolocation.getCurrentPosition(pos => {
+      currentLat = pos.coords.latitude;
+      currentLng = pos.coords.longitude;
+      currentAcc = pos.coords.accuracy;
+      document.getElementById('lat-display').textContent = currentLat.toFixed(7);
+      document.getElementById('lat-display').classList.remove('placeholder');
+      document.getElementById('lng-display').textContent = currentLng.toFixed(7);
+      document.getElementById('lng-display').classList.remove('placeholder');
+      const dot = document.getElementById('acc-dot'), tx = document.getElementById('acc-text');
+      if (currentAcc <= 10)      { dot.className='accuracy-dot good'; tx.textContent=`Rất chính xác (~${Math.round(currentAcc)}m)`; }
+      else if (currentAcc <= 50) { dot.className='accuracy-dot fair'; tx.textContent=`Chính xác vừa (~${Math.round(currentAcc)}m)`; }
+      else                       { dot.className='accuracy-dot bad';  tx.textContent=`Thấp (~${Math.round(currentAcc)}m) — thử lại`; }
+      resetLocBtn(); showToast('Đã lấy vị trí thành công', 'success');
+    }, err => {
+      let m = 'Không lấy được vị trí';
+      if (err.code===1) m='Vui lòng cấp quyền vị trí';
+      if (err.code===3) m='Hết thời gian — thử lại';
+      showToast(m, 'error'); resetLocBtn();
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  }
+
+  function resetLocBtn() {
+    const btn = document.getElementById('btn-locate');
+    btn.disabled = false;
+    const sp = document.querySelector('.spinner');
+    if (sp) sp.outerHTML = `<svg id="loc-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7" opacity="0.4"/></svg>`;
+    document.getElementById('btn-locate-text').textContent = 'Lấy vị trí GPS';
+  }
+
+  function copyCoords() {
+    if (currentLat===null) { showToast('Chưa có toạ độ để sao chép', 'error'); return; }
+    const text = `${currentLat.toFixed(7)}, ${currentLng.toFixed(7)}`;
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(()=>showToast('Đã sao chép toạ độ','success'));
+    else { const el=document.createElement('textarea'); el.value=text; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); showToast('Đã sao chép toạ độ','success'); }
+  }
+
+  /* ---- Camera ---- */
+  function handlePhoto(input) {
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      // Resize to max 800px to save storage
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else       { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        currentPhotoBase64 = canvas.toDataURL('image/jpeg', 0.75);
+        document.getElementById('preview-img').src = currentPhotoBase64;
+        document.getElementById('photo-preview').style.display = 'block';
+        showToast('Đã chọn ảnh', 'success');
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+  }
+
+  function removePhoto() {
+    currentPhotoBase64 = null;
+    document.getElementById('photo-preview').style.display = 'none';
+    document.getElementById('preview-img').src = '';
+  }
+
+  /* ---- Import ---- */
+  function importRecord() {
+    if (currentLat===null) { showToast('Lấy vị trí GPS trước', 'error'); return; }
+    const note = document.getElementById('note-input').value.trim();
+    const now = new Date();
+    records.unshift({ id: Date.now(), lat: currentLat, lng: currentLng, acc: currentAcc, photo: currentPhotoBase64, note, time: now.toLocaleString('vi-VN') });
+    save(); renderTable();
+    document.getElementById('note-input').value = '';
+    removePhoto();
+    showToast('Đã lưu vị trí vào bảng', 'success');
+  }
+
+  function deleteRecord(id) {
+    records = records.filter(r => r.id !== id);
+    save(); renderTable(); showToast('Đã xoá', 'info');
+  }
+
+  /* ---- Table ---- */
+  function renderTable() {
+    const tbody = document.getElementById('table-body');
+    document.getElementById('record-count').textContent = `${records.length} điểm`;
+    document.getElementById('btn-export').disabled = records.length === 0;
+
+    if (records.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+          <circle cx="12" cy="9" r="2.5"/></svg>
+        <p>Chưa có dữ liệu nào.<br>Lấy vị trí rồi nhấn Import.</p></div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = records.map((r, i) => `
+      <tr>
+        <td>${records.length - i}</td>
+        <td>${r.lat.toFixed(7)}</td>
+        <td>${r.lng.toFixed(7)}</td>
+        <td>${r.acc ? Math.round(r.acc) : '-'}</td>
+        <td class="photo-col">${r.photo
+          ? `<img class="thumb" src="${r.photo}" onclick="openLightbox('${r.id}')" title="Xem ảnh">`
+          : `<span class="no-photo">—</span>`}</td>
+        <td class="note-col" title="${r.note||''}">${r.note||'<span style="color:#ccc">—</span>'}</td>
+        <td class="time-col">${r.time}</td>
+        <td><button class="btn-del" onclick="deleteRecord(${r.id})">✕</button></td>
+      </tr>`).join('');
+  }
+
+  /* ---- Lightbox ---- */
+  function openLightbox(id) {
+    const r = records.find(x => x.id == id);
+    if (!r || !r.photo) return;
+    document.getElementById('lightbox-img').src = r.photo;
+    document.getElementById('lightbox').classList.add('show');
+  }
+  function closeLightbox() { document.getElementById('lightbox').classList.remove('show'); }
+
+  /* ---- Export Excel ---- */
+  function exportExcel() {
+    if (records.length === 0) { showToast('Không có dữ liệu', 'error'); return; }
+    const wsData = [
+      ['STT','Vĩ độ (Lat)','Kinh độ (Lng)','Độ chính xác (m)','Có ảnh','Ghi chú','Thời gian'],
+      ...records.map((r,i) => [
+        records.length-i, r.lat, r.lng,
+        r.acc ? Math.round(r.acc) : '',
+        r.photo ? 'Có' : 'Không',
+        r.note||'', r.time
+      ])
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [{wch:5},{wch:16},{wch:16},{wch:14},{wch:8},{wch:30},{wch:22}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'GPS Data');
+    const now = new Date();
+    XLSX.writeFile(wb, `GPS_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.xlsx`);
+    showToast('Đã xuất file Excel', 'success');
+  }
+
+  renderTable();
+</script>
+</body>
+</html>
