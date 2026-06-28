@@ -5,187 +5,229 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#1a73e8">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<title>GPS Tracker</title>
+<title>GPS Tracker Pro</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f4ff; min-height: 100vh; color: #1c1c2e; }
+:root {
+  --bg: #f0f4ff;
+  --card: #ffffff;
+  --text: #1c1c2e;
+  --text2: #555;
+  --text3: #888;
+  --border: #e0e0e0;
+  --blue: #1a73e8;
+  --blue-light: #f0f6ff;
+  --blue-border: #c5d8fb;
+  --green: #34a853;
+  --red: #ea4335;
+  --shadow: 0 2px 16px rgba(0,0,0,0.08);
+  --header-bg: linear-gradient(135deg,#1a73e8,#0d47a1);
+}
+.dark {
+  --bg: #0f1117;
+  --card: #1e2130;
+  --text: #e8eaf6;
+  --text2: #aab;
+  --text3: #778;
+  --border: #2e3250;
+  --blue-light: #1a2340;
+  --blue-border: #2a3d6e;
+  --shadow: 0 2px 16px rgba(0,0,0,0.4);
+  --header-bg: linear-gradient(135deg,#0d47a1,#0a2e6e);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background 0.3s, color 0.3s; }
 
-  header {
-    background: linear-gradient(135deg, #1a73e8, #0d47a1);
-    color: white; padding: 18px 20px 14px;
-    display: flex; align-items: center; gap: 12px;
-    box-shadow: 0 2px 12px rgba(26,115,232,0.35);
-    position: sticky; top: 0; z-index: 100;
-  }
-  header h1 { font-size: 1.2rem; font-weight: 700; }
-  header p  { font-size: 0.72rem; opacity: 0.8; margin-top: 1px; }
+/* HEADER */
+header {
+  background: var(--header-bg);
+  color: white; padding: 14px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  box-shadow: 0 2px 12px rgba(26,115,232,0.35);
+  position: sticky; top: 0; z-index: 500;
+}
+.header-left { display: flex; align-items: center; gap: 10px; }
+header h1 { font-size: 1.1rem; font-weight: 700; }
+header p  { font-size: 0.68rem; opacity: 0.8; margin-top: 1px; }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.btn-icon { background: rgba(255,255,255,0.15); border: none; color: white; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+.btn-icon:hover { background: rgba(255,255,255,0.25); }
 
-  .container { padding: 16px; max-width: 600px; margin: 0 auto; }
+/* PROJECT BAR */
+.project-bar {
+  background: var(--card); border-bottom: 1px solid var(--border);
+  padding: 10px 16px; display: flex; align-items: center; gap: 8px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  position: sticky; top: 58px; z-index: 400;
+}
+.project-bar::-webkit-scrollbar { display: none; }
+.proj-chip {
+  flex-shrink: 0; padding: 5px 14px; border-radius: 20px; font-size: 0.78rem;
+  font-weight: 600; cursor: pointer; border: 1.5px solid var(--blue-border);
+  background: var(--blue-light); color: var(--blue); transition: all 0.2s; white-space: nowrap;
+}
+.proj-chip.active { background: var(--blue); color: white; border-color: var(--blue); }
+.proj-chip.add-proj { background: none; border-style: dashed; color: var(--text3); }
 
-  .card {
-    background: white; border-radius: 18px; padding: 20px;
-    box-shadow: 0 2px 16px rgba(0,0,0,0.08); margin-bottom: 14px;
-  }
-  .card-label {
-    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px;
-    color: #888; font-weight: 600; margin-bottom: 12px;
-  }
+/* CONTAINER */
+.container { padding: 14px; max-width: 640px; margin: 0 auto; }
 
-  /* GPS */
-  .coords-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-  .coord-box { background: #f0f6ff; border: 1.5px solid #c5d8fb; border-radius: 12px; padding: 12px 14px; }
-  .coord-box .coord-label { font-size: 0.68rem; color: #1a73e8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
-  .coord-box .coord-value { font-size: 1.05rem; font-weight: 700; color: #1c1c2e; font-family: 'Courier New', monospace; }
-  .coord-box .coord-value.placeholder { color: #bbb; font-size: 0.9rem; }
-  .accuracy-row { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: #555; margin-bottom: 14px; }
-  .accuracy-dot { width: 9px; height: 9px; border-radius: 50%; background: #ccc; flex-shrink: 0; transition: background 0.3s; }
-  .accuracy-dot.good { background: #34a853; box-shadow: 0 0 6px #34a85360; }
-  .accuracy-dot.fair { background: #fbbc04; box-shadow: 0 0 6px #fbbc0460; }
-  .accuracy-dot.bad  { background: #ea4335; box-shadow: 0 0 6px #ea433560; }
+/* CARD */
+.card { background: var(--card); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); margin-bottom: 12px; }
+.card-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text3); font-weight: 600; margin-bottom: 10px; }
 
-  .btn-get-location {
-    width: 100%; background: linear-gradient(135deg, #1a73e8, #1558b0);
-    color: white; border: none; border-radius: 12px; padding: 13px;
-    font-size: 0.92rem; font-weight: 700; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-    transition: opacity 0.2s, transform 0.1s;
-  }
-  .btn-get-location:active { transform: scale(0.98); opacity: 0.88; }
-  .btn-get-location:disabled { opacity: 0.5; cursor: not-allowed; }
+/* MAP */
+#map { width: 100%; height: 220px; border-radius: 12px; overflow: hidden; z-index: 1; margin-bottom: 12px; }
 
-  .spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+/* GPS */
+.coords-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.coord-box { background: var(--blue-light); border: 1.5px solid var(--blue-border); border-radius: 10px; padding: 10px 12px; }
+.coord-box .coord-label { font-size: 0.65rem; color: var(--blue); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 3px; }
+.coord-box .coord-value { font-size: 0.95rem; font-weight: 700; color: var(--text); font-family: 'Courier New', monospace; }
+.coord-box .coord-value.placeholder { color: var(--text3); font-size: 0.85rem; }
 
-  /* Camera */
-  .camera-area { margin-bottom: 0; }
-  .photo-preview {
-    width: 100%; border-radius: 12px; overflow: hidden;
-    background: #f5f5f5; margin-bottom: 12px;
-    display: none; position: relative;
-  }
-  .photo-preview img { width: 100%; display: block; max-height: 260px; object-fit: cover; }
-  .photo-preview .remove-photo {
-    position: absolute; top: 8px; right: 8px;
-    background: rgba(0,0,0,0.55); color: white; border: none;
-    border-radius: 50%; width: 28px; height: 28px; font-size: 14px;
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-  }
-  .camera-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .btn-cam {
-    border: none; border-radius: 12px; padding: 12px 10px;
-    font-size: 0.85rem; font-weight: 700; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 7px;
-    transition: opacity 0.2s, transform 0.1s;
-  }
-  .btn-cam:active { transform: scale(0.97); opacity: 0.85; }
-  .btn-cam-shoot { background: linear-gradient(135deg, #ea4335, #c0392b); color: white; }
-  .btn-cam-gallery { background: linear-gradient(135deg, #f0f4ff, #e3ecfd); color: #1a73e8; border: 1.5px solid #c5d8fb; }
+.accuracy-row { display: flex; align-items: center; gap: 7px; font-size: 0.75rem; color: var(--text2); margin-bottom: 10px; }
+.accuracy-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; flex-shrink: 0; }
+.accuracy-dot.good { background: #34a853; box-shadow: 0 0 5px #34a85360; }
+.accuracy-dot.fair { background: #fbbc04; box-shadow: 0 0 5px #fbbc0460; }
+.accuracy-dot.bad  { background: #ea4335; box-shadow: 0 0 5px #ea433560; }
 
-  /* Note */
-  textarea {
-    width: 100%; min-height: 75px; border: 1.5px solid #e0e0e0;
-    border-radius: 10px; padding: 12px; font-size: 0.9rem;
-    font-family: inherit; resize: vertical; outline: none; color: #1c1c2e;
-    transition: border-color 0.2s; background: #fafafa;
-  }
-  textarea:focus { border-color: #1a73e8; background: white; }
-  textarea::placeholder { color: #bbb; }
+.btn-get-location {
+  width: 100%; background: linear-gradient(135deg,#1a73e8,#1558b0);
+  color: white; border: none; border-radius: 12px; padding: 12px;
+  font-size: 0.88rem; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.2s;
+}
+.btn-get-location:disabled { opacity: 0.5; }
+.spinner { width: 15px; height: 15px; border: 2.5px solid rgba(255,255,255,0.35); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Actions */
-  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-  .btn {
-    border: none; border-radius: 12px; padding: 13px;
-    font-size: 0.88rem; font-weight: 700; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 7px;
-    transition: opacity 0.2s, transform 0.1s;
-  }
-  .btn:active { transform: scale(0.97); opacity: 0.85; }
-  .btn-import { background: linear-gradient(135deg, #34a853, #278d42); color: white; }
-  .btn-copy   { background: linear-gradient(135deg, #f0f4ff, #e3ecfd); color: #1a73e8; border: 1.5px solid #c5d8fb; }
+/* FIELDS */
+.fields-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.field-wrap { display: flex; flex-direction: column; gap: 4px; }
+.field-wrap label { font-size: 0.68rem; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.7px; }
+input[type=text], textarea, select {
+  background: var(--bg); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; font-size: 0.88rem;
+  font-family: inherit; color: var(--text); outline: none; width: 100%;
+  transition: border-color 0.2s;
+}
+input[type=text]:focus, textarea:focus { border-color: var(--blue); }
+textarea { resize: vertical; min-height: 68px; }
+input::placeholder, textarea::placeholder { color: var(--text3); }
 
-  /* Table */
-  .table-card { background: white; border-radius: 18px; box-shadow: 0 2px 16px rgba(0,0,0,0.08); overflow: hidden; margin-bottom: 80px; }
-  .table-header { padding: 16px 20px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f0f0f0; }
-  .table-header-left { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #888; font-weight: 600; }
-  .record-count { font-size: 0.78rem; font-weight: 700; color: #1a73e8; background: #f0f6ff; padding: 3px 10px; border-radius: 20px; }
-  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  table { width: 100%; border-collapse: collapse; min-width: 520px; font-size: 0.8rem; }
-  thead th { background: #f8faff; padding: 10px 12px; text-align: left; font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.8px; color: #1a73e8; font-weight: 700; border-bottom: 1px solid #e8f0fe; }
-  tbody tr { border-bottom: 1px solid #f5f5f5; transition: background 0.15s; }
-  tbody tr:hover { background: #fafcff; }
-  tbody tr:last-child { border-bottom: none; }
-  tbody td { padding: 9px 12px; color: #333; font-family: 'Courier New', monospace; vertical-align: middle; }
-  tbody td.note-col { font-family: inherit; color: #555; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  tbody td.time-col { font-size: 0.72rem; color: #888; white-space: nowrap; font-family: inherit; }
-  tbody td.photo-col { padding: 6px 12px; }
+/* CAMERA */
+.camera-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btn-cam { border: none; border-radius: 10px; padding: 10px; font-size: 0.82rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: opacity 0.2s; }
+.btn-cam-shoot   { background: linear-gradient(135deg,#ea4335,#c0392b); color: white; }
+.btn-cam-gallery { background: var(--blue-light); color: var(--blue); border: 1.5px solid var(--blue-border); }
+.photo-preview { display: none; position: relative; margin-bottom: 10px; border-radius: 10px; overflow: hidden; }
+.photo-preview img { width: 100%; max-height: 200px; object-fit: cover; display: block; }
+.remove-photo { position: absolute; top: 7px; right: 7px; background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 26px; height: 26px; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#file-camera, #file-gallery { display: none; }
 
-  .thumb {
-    width: 44px; height: 44px; border-radius: 8px; object-fit: cover;
-    cursor: pointer; border: 2px solid #e3ecfd;
-    transition: transform 0.15s;
-  }
-  .thumb:hover { transform: scale(1.08); }
-  .no-photo { color: #ccc; font-size: 0.75rem; }
+/* ACTIONS */
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.btn { border: none; border-radius: 12px; padding: 12px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: opacity 0.2s, transform 0.1s; }
+.btn:active { transform: scale(0.97); opacity: 0.85; }
+.btn-import { background: linear-gradient(135deg,#34a853,#278d42); color: white; }
+.btn-copy   { background: var(--blue-light); color: var(--blue); border: 1.5px solid var(--blue-border); }
 
-  .btn-del { background: none; border: none; color: #ea4335; cursor: pointer; padding: 4px 6px; border-radius: 6px; font-size: 1rem; transition: background 0.15s; }
-  .btn-del:hover { background: #fdecea; }
+/* SEARCH */
+.search-wrap { position: relative; margin-bottom: 10px; }
+.search-wrap input { padding-left: 36px; }
+.search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text3); pointer-events: none; }
 
-  .empty-state { text-align: center; padding: 40px 20px; color: #bbb; }
-  .empty-state svg { margin-bottom: 12px; opacity: 0.4; }
-  .empty-state p { font-size: 0.85rem; }
+/* TABLE */
+.table-card { background: var(--card); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; margin-bottom: 80px; }
+.table-header { padding: 14px 16px 10px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); gap: 8px; flex-wrap: wrap; }
+.table-header-left { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text3); font-weight: 600; }
+.table-actions { display: flex; align-items: center; gap: 8px; }
+.record-count { font-size: 0.75rem; font-weight: 700; color: var(--blue); background: var(--blue-light); padding: 3px 10px; border-radius: 20px; }
+.btn-clear-all { font-size: 0.72rem; font-weight: 700; color: var(--red); background: none; border: 1.5px solid #fcc; border-radius: 20px; padding: 3px 10px; cursor: pointer; }
+.dark .btn-clear-all { border-color: #5a2020; }
 
-  /* Lightbox */
-  .lightbox {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88);
-    z-index: 9000; align-items: center; justify-content: center; padding: 20px;
-  }
-  .lightbox.show { display: flex; }
-  .lightbox img { max-width: 100%; max-height: 90vh; border-radius: 12px; object-fit: contain; }
-  .lightbox-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 50%; width: 36px; height: 36px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; min-width: 560px; font-size: 0.78rem; }
+thead th { background: var(--blue-light); padding: 9px 10px; text-align: left; font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--blue); font-weight: 700; border-bottom: 1px solid var(--blue-border); }
+tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+tbody tr:last-child { border-bottom: none; }
+tbody td { padding: 8px 10px; color: var(--text); font-family: 'Courier New', monospace; vertical-align: middle; }
+tbody td.name-col { font-family: inherit; font-weight: 600; color: var(--blue); }
+tbody td.note-col { font-family: inherit; color: var(--text2); max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+tbody td.time-col { font-size: 0.7rem; color: var(--text3); white-space: nowrap; font-family: inherit; }
+.thumb { width: 40px; height: 40px; border-radius: 7px; object-fit: cover; cursor: pointer; border: 2px solid var(--blue-border); }
+.no-photo { color: var(--text3); }
+.btn-del { background: none; border: none; color: var(--red); cursor: pointer; padding: 3px 5px; border-radius: 6px; font-size: 0.9rem; }
 
-  /* Export */
-  .export-bar { position: fixed; bottom: 0; left: 0; right: 0; padding: 12px 16px; background: white; border-top: 1px solid #eee; box-shadow: 0 -4px 20px rgba(0,0,0,0.08); z-index: 99; }
-  .btn-export {
-    width: 100%; max-width: 600px; margin: 0 auto; display: flex;
-    background: linear-gradient(135deg, #0d47a1, #1a73e8); color: white;
-    border: none; border-radius: 12px; padding: 14px; font-size: 0.92rem;
-    font-weight: 700; cursor: pointer; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.2s;
-  }
-  .btn-export:active { opacity: 0.85; }
-  .btn-export:disabled { opacity: 0.4; cursor: not-allowed; }
+.empty-state { text-align: center; padding: 36px 20px; color: var(--text3); }
+.empty-state p { font-size: 0.82rem; margin-top: 10px; }
 
-  /* Toast */
-  .toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%) translateY(-20px); background: #1c1c2e; color: white; padding: 10px 20px; border-radius: 30px; font-size: 0.82rem; font-weight: 600; white-space: nowrap; opacity: 0; pointer-events: none; transition: all 0.3s; z-index: 9999; }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  .toast.success { background: #34a853; }
-  .toast.error   { background: #ea4335; }
-  .toast.info    { background: #1a73e8; }
+/* EXPORT */
+.export-bar { position: fixed; bottom: 0; left: 0; right: 0; padding: 10px 14px; background: var(--card); border-top: 1px solid var(--border); box-shadow: 0 -4px 20px rgba(0,0,0,0.1); z-index: 300; }
+.btn-export { width: 100%; max-width: 640px; margin: 0 auto; display: flex; background: linear-gradient(135deg,#0d47a1,#1a73e8); color: white; border: none; border-radius: 12px; padding: 13px; font-size: 0.88rem; font-weight: 700; cursor: pointer; align-items: center; justify-content: center; gap: 8px; }
+.btn-export:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  /* Hidden file input */
-  #file-camera, #file-gallery { display: none; }
+/* LIGHTBOX */
+.lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9000; align-items: center; justify-content: center; padding: 20px; }
+.lightbox.show { display: flex; }
+.lightbox img { max-width: 100%; max-height: 90vh; border-radius: 10px; object-fit: contain; }
+.lightbox-close { position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 50%; width: 34px; height: 34px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+/* MODAL */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 8000; align-items: center; justify-content: center; padding: 20px; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--card); border-radius: 18px; padding: 24px; width: 100%; max-width: 320px; text-align: center; }
+.modal h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+.modal p { font-size: 0.82rem; color: var(--text2); margin-bottom: 18px; }
+.modal-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.modal-btn { border: none; border-radius: 10px; padding: 11px; font-size: 0.85rem; font-weight: 700; cursor: pointer; }
+.modal-btn.cancel { background: var(--bg); color: var(--text2); }
+.modal-btn.confirm { background: var(--red); color: white; }
+
+/* TOAST */
+.toast { position: fixed; top: 76px; left: 50%; transform: translateX(-50%) translateY(-16px); background: #1c1c2e; color: white; padding: 9px 18px; border-radius: 28px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; opacity: 0; pointer-events: none; transition: all 0.28s; z-index: 9999; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.success { background: #34a853; }
+.toast.error   { background: #ea4335; }
+.toast.info    { background: #1a73e8; }
 </style>
 </head>
 <body>
 
 <header>
-  <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-    <circle cx="12" cy="10" r="4" fill="white" opacity="0.9"/>
-    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="white" opacity="0.4"/>
-    <circle cx="12" cy="10" r="2" fill="#1a73e8"/>
-  </svg>
-  <div>
-    <h1>GPS Tracker</h1>
-    <p>Ghi lại toạ độ · ảnh · ghi chú</p>
+  <div class="header-left">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="white" opacity="0.4"/>
+      <circle cx="12" cy="9" r="3" fill="white"/>
+    </svg>
+    <div>
+      <h1>GPS Tracker Pro</h1>
+      <p id="header-project">Chọn dự án bên dưới</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="btn-icon" onclick="toggleDark()" title="Chế độ tối">
+      <svg id="dark-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+        <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+      </svg>
+    </button>
   </div>
 </header>
 
+<!-- PROJECT BAR -->
+<div class="project-bar" id="project-bar">
+  <div class="proj-chip add-proj" onclick="addProject()">+ Dự án mới</div>
+</div>
+
 <div class="container">
 
-  <!-- GPS Card -->
-  <div class="card">
-    <div class="card-label">📍 Toạ độ hiện tại</div>
+  <!-- MAP -->
+  <div class="card" style="padding:14px;">
+    <div class="card-label">🗺️ Bản đồ thực địa</div>
+    <div id="map"></div>
     <div class="coords-row">
       <div class="coord-box">
         <div class="coord-label">Vĩ độ (Lat)</div>
@@ -198,37 +240,43 @@
     </div>
     <div class="accuracy-row">
       <div class="accuracy-dot" id="acc-dot"></div>
-      <span id="acc-text">Chưa lấy vị trí</span>
+      <span id="acc-text">Đang lấy vị trí…</span>
     </div>
     <button class="btn-get-location" id="btn-locate" onclick="getLocation()">
-      <svg id="loc-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+      <svg id="loc-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
         <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
-        <circle cx="12" cy="12" r="7" opacity="0.4"/>
       </svg>
-      <span id="btn-locate-text">Lấy vị trí GPS</span>
+      <span id="btn-locate-text">Làm mới vị trí</span>
     </button>
   </div>
 
-  <!-- Camera Card -->
-  <div class="card camera-area">
-    <div class="card-label">📷 Chụp ảnh</div>
+  <!-- FIELDS -->
+  <div class="card">
+    <div class="card-label">📋 Thông tin điểm</div>
+    <div class="fields-grid">
+      <div class="field-wrap">
+        <label>Tên điểm</label>
+        <input type="text" id="point-name" placeholder="VD: Cột A1, Cọc B3…">
+      </div>
+      <div class="field-wrap">
+        <label>Ghi chú</label>
+        <input type="text" id="note-input" placeholder="Ghi chú ngắn…">
+      </div>
+    </div>
+
+    <!-- CAMERA -->
+    <div class="card-label" style="margin-top:10px;">📷 Ảnh</div>
     <div class="photo-preview" id="photo-preview">
-      <img id="preview-img" src="" alt="Ảnh đã chọn">
-      <button class="remove-photo" onclick="removePhoto()" title="Xoá ảnh">✕</button>
+      <img id="preview-img" src="" alt="">
+      <button class="remove-photo" onclick="removePhoto()">✕</button>
     </div>
     <div class="camera-btns">
       <button class="btn-cam btn-cam-shoot" onclick="document.getElementById('file-camera').click()">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
-          <circle cx="12" cy="13" r="4"/>
-        </svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
         Chụp ảnh
       </button>
       <button class="btn-cam btn-cam-gallery" onclick="document.getElementById('file-gallery').click()">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2.5">
-          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
-          <polyline points="21 15 16 10 5 21"/>
-        </svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
         Thư viện
       </button>
     </div>
@@ -236,261 +284,352 @@
     <input type="file" id="file-gallery" accept="image/*" onchange="handlePhoto(this)">
   </div>
 
-  <!-- Note Card -->
-  <div class="card">
-    <div class="card-label">📝 Ghi chú</div>
-    <textarea id="note-input" placeholder="Nhập ghi chú cho vị trí này…" rows="3"></textarea>
-  </div>
-
-  <!-- Actions -->
+  <!-- ACTIONS -->
   <div class="actions">
     <button class="btn btn-import" onclick="importRecord()">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-        <path d="M12 5v14M5 12l7 7 7-7"/>
-        <rect x="3" y="18" width="18" height="3" rx="1" fill="white" stroke="none" opacity="0.5"/>
-      </svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
       Import
     </button>
     <button class="btn btn-copy" onclick="copyCoords()">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2.5">
-        <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-      </svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
       Sao chép
     </button>
   </div>
 
-  <!-- Table -->
+  <!-- TABLE -->
   <div class="table-card">
     <div class="table-header">
       <span class="table-header-left">📋 Dữ liệu đã lưu</span>
-      <span class="record-count" id="record-count">0 điểm</span>
+      <div class="table-actions">
+        <span class="record-count" id="record-count">0 điểm</span>
+        <button class="btn-clear-all" onclick="confirmClearAll()">Xoá tất cả</button>
+      </div>
+    </div>
+    <!-- SEARCH -->
+    <div style="padding:10px 14px 6px;">
+      <div class="search-wrap">
+        <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search-input" placeholder="Tìm theo tên, ghi chú…" oninput="renderTable()">
+      </div>
     </div>
     <div class="table-scroll">
       <table>
         <thead>
           <tr>
             <th>#</th>
+            <th>Tên điểm</th>
             <th>Vĩ độ</th>
             <th>Kinh độ</th>
-            <th>±(m)</th>
+            <th>±m</th>
             <th>Ảnh</th>
             <th>Ghi chú</th>
             <th>Thời gian</th>
             <th></th>
           </tr>
         </thead>
-        <tbody id="table-body">
-          <tr><td colspan="8">
-            <div class="empty-state">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-                <circle cx="12" cy="9" r="2.5"/>
-              </svg>
-              <p>Chưa có dữ liệu nào.<br>Lấy vị trí rồi nhấn Import.</p>
-            </div>
-          </td></tr>
-        </tbody>
+        <tbody id="table-body"></tbody>
       </table>
     </div>
   </div>
 </div>
 
-<!-- Export bar -->
+<!-- EXPORT -->
 <div class="export-bar">
   <button class="btn-export" id="btn-export" onclick="exportExcel()" disabled>
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-      <polyline points="14 2 14 8 20 8"/>
-      <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
-    </svg>
-    Xuất file Excel (.xlsx)
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    Xuất Excel
   </button>
 </div>
 
-<!-- Lightbox -->
+<!-- LIGHTBOX -->
 <div class="lightbox" id="lightbox" onclick="closeLightbox()">
   <button class="lightbox-close">✕</button>
   <img id="lightbox-img" src="" alt="">
 </div>
 
+<!-- MODAL xác nhận xoá -->
+<div class="modal-overlay" id="modal-clear">
+  <div class="modal">
+    <h3>Xoá tất cả?</h3>
+    <p>Toàn bộ dữ liệu trong dự án này sẽ bị xoá vĩnh viễn.</p>
+    <div class="modal-btns">
+      <button class="modal-btn cancel" onclick="closeModal('modal-clear')">Huỷ</button>
+      <button class="modal-btn confirm" onclick="clearAll()">Xoá hết</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL thêm dự án -->
+<div class="modal-overlay" id="modal-project">
+  <div class="modal">
+    <h3>Tên dự án mới</h3>
+    <input type="text" id="new-project-name" placeholder="VD: Công trình A, Khu B…" style="margin-bottom:14px;">
+    <div class="modal-btns">
+      <button class="modal-btn cancel" onclick="closeModal('modal-project')">Huỷ</button>
+      <button class="modal-btn confirm" style="background:var(--green);" onclick="saveNewProject()">Tạo</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-  const STORAGE_KEY = 'gps_tracker_v2';
-  let currentLat = null, currentLng = null, currentAcc = null;
-  let currentPhotoBase64 = null;
+const STORE = 'gps_pro_v1';
+let state = { projects: ['Mặc định'], activeProject: 'Mặc định', records: {}, dark: false };
 
-  let records = [];
-  try { const s = localStorage.getItem(STORAGE_KEY); if (s) records = JSON.parse(s); } catch(e) {}
+// Load
+try { const s = localStorage.getItem(STORE); if(s) state = {...state, ...JSON.parse(s)}; } catch(e){}
+if (!state.records['Mặc định']) state.records['Mặc định'] = [];
 
-  function save() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); } catch(e) {
-      showToast('Bộ nhớ đầy, không thể lưu ảnh lớn', 'error');
-    }
+let currentLat=null, currentLng=null, currentAcc=null, currentPhoto=null;
+let map, marker, circle;
+
+// DARK MODE
+function applyDark() {
+  document.body.classList.toggle('dark', state.dark);
+  document.getElementById('dark-icon').innerHTML = state.dark
+    ? '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
+    : '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>';
+  if(map) { setTimeout(()=>map.invalidateSize(),100); }
+}
+function toggleDark() { state.dark=!state.dark; applyDark(); save(); }
+
+// SAVE
+function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch(e){ showToast('Bộ nhớ đầy!','error'); } }
+
+// TOAST
+function showToast(msg,type='info') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=`toast ${type} show`;
+  clearTimeout(t._t); t._t=setTimeout(()=>{t.className='toast';},2400);
+}
+
+// MODAL
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+// PROJECTS
+function renderProjects() {
+  const bar = document.getElementById('project-bar');
+  bar.innerHTML = state.projects.map(p=>`
+    <div class="proj-chip ${p===state.activeProject?'active':''}" onclick="selectProject('${p}')">${p}</div>
+  `).join('') + `<div class="proj-chip add-proj" onclick="addProject()">+ Mới</div>`;
+  document.getElementById('header-project').textContent = state.activeProject;
+}
+
+function selectProject(p) {
+  state.activeProject = p;
+  if (!state.records[p]) state.records[p] = [];
+  save(); renderProjects(); renderTable();
+}
+
+function addProject() {
+  document.getElementById('new-project-name').value='';
+  document.getElementById('modal-project').classList.add('show');
+  setTimeout(()=>document.getElementById('new-project-name').focus(),200);
+}
+
+function saveNewProject() {
+  const name = document.getElementById('new-project-name').value.trim();
+  if (!name) { showToast('Nhập tên dự án','error'); return; }
+  if (state.projects.includes(name)) { showToast('Tên đã tồn tại','error'); return; }
+  state.projects.push(name);
+  state.records[name] = [];
+  closeModal('modal-project');
+  selectProject(name);
+  showToast(`Đã tạo dự án "${name}"`, 'success');
+}
+
+// MAP
+function initMap() {
+  map = L.map('map', { zoomControl: true, attributionControl: false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+  map.setView([10.045, 105.746], 13); // Mặc định Cần Thơ
+}
+
+function updateMap(lat, lng, acc) {
+  const latlng = [lat, lng];
+  map.setView(latlng, 17);
+  if (marker) { marker.setLatLng(latlng); } 
+  else {
+    marker = L.circleMarker(latlng, { radius:10, color:'#1a73e8', fillColor:'#1a73e8', fillOpacity:0.9, weight:3 }).addTo(map);
   }
+  if (circle) { circle.setLatLng(latlng).setRadius(acc); }
+  else { circle = L.circle(latlng, { radius:acc, color:'#1a73e8', fillColor:'#1a73e8', fillOpacity:0.1, weight:1 }).addTo(map); }
 
-  function showToast(msg, type='info') {
-    const t = document.getElementById('toast');
-    t.textContent = msg; t.className = `toast ${type} show`;
-    clearTimeout(t._t); t._t = setTimeout(() => { t.className = 'toast'; }, 2500);
-  }
+  // Thêm marker các điểm đã lưu
+  renderMapMarkers();
+}
 
-  /* ---- GPS ---- */
-  function getLocation() {
-    if (!navigator.geolocation) { showToast('Thiết bị không hỗ trợ GPS', 'error'); return; }
-    const btn = document.getElementById('btn-locate');
-    btn.disabled = true;
-    document.getElementById('btn-locate-text').textContent = 'Đang định vị…';
-    document.getElementById('loc-icon').outerHTML = '<div class="spinner" id="loc-icon"></div>';
+function renderMapMarkers() {
+  if (!map) return;
+  const records = state.records[state.activeProject] || [];
+  records.forEach(r => {
+    L.circleMarker([r.lat, r.lng], { radius:6, color:'#34a853', fillColor:'#34a853', fillOpacity:0.8, weight:2 })
+      .addTo(map)
+      .bindPopup(`<b>${r.name||'#'+r.id}</b><br>${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}`);
+  });
+}
 
-    navigator.geolocation.getCurrentPosition(pos => {
-      currentLat = pos.coords.latitude;
-      currentLng = pos.coords.longitude;
-      currentAcc = pos.coords.accuracy;
-      document.getElementById('lat-display').textContent = currentLat.toFixed(7);
-      document.getElementById('lat-display').classList.remove('placeholder');
-      document.getElementById('lng-display').textContent = currentLng.toFixed(7);
-      document.getElementById('lng-display').classList.remove('placeholder');
-      const dot = document.getElementById('acc-dot'), tx = document.getElementById('acc-text');
-      if (currentAcc <= 10)      { dot.className='accuracy-dot good'; tx.textContent=`Rất chính xác (~${Math.round(currentAcc)}m)`; }
-      else if (currentAcc <= 50) { dot.className='accuracy-dot fair'; tx.textContent=`Chính xác vừa (~${Math.round(currentAcc)}m)`; }
-      else                       { dot.className='accuracy-dot bad';  tx.textContent=`Thấp (~${Math.round(currentAcc)}m) — thử lại`; }
-      resetLocBtn(); showToast('Đã lấy vị trí thành công', 'success');
-    }, err => {
-      let m = 'Không lấy được vị trí';
-      if (err.code===1) m='Vui lòng cấp quyền vị trí';
-      if (err.code===3) m='Hết thời gian — thử lại';
-      showToast(m, 'error'); resetLocBtn();
-    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
-  }
+// GPS
+function getLocation() {
+  if (!navigator.geolocation) { showToast('Không hỗ trợ GPS','error'); return; }
+  const btn=document.getElementById('btn-locate');
+  btn.disabled=true;
+  document.getElementById('btn-locate-text').textContent='Đang định vị…';
+  document.getElementById('loc-icon').outerHTML='<div class="spinner" id="loc-icon"></div>';
 
-  function resetLocBtn() {
-    const btn = document.getElementById('btn-locate');
-    btn.disabled = false;
-    const sp = document.querySelector('.spinner');
-    if (sp) sp.outerHTML = `<svg id="loc-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7" opacity="0.4"/></svg>`;
-    document.getElementById('btn-locate-text').textContent = 'Lấy vị trí GPS';
-  }
+  navigator.geolocation.getCurrentPosition(pos=>{
+    currentLat=pos.coords.latitude; currentLng=pos.coords.longitude; currentAcc=pos.coords.accuracy;
+    document.getElementById('lat-display').textContent=currentLat.toFixed(7);
+    document.getElementById('lat-display').classList.remove('placeholder');
+    document.getElementById('lng-display').textContent=currentLng.toFixed(7);
+    document.getElementById('lng-display').classList.remove('placeholder');
+    const dot=document.getElementById('acc-dot'), tx=document.getElementById('acc-text');
+    if(currentAcc<=10){dot.className='accuracy-dot good';tx.textContent=`Rất chính xác (~${Math.round(currentAcc)}m)`;}
+    else if(currentAcc<=50){dot.className='accuracy-dot fair';tx.textContent=`Chính xác vừa (~${Math.round(currentAcc)}m)`;}
+    else{dot.className='accuracy-dot bad';tx.textContent=`Thấp (~${Math.round(currentAcc)}m) — thử lại`;}
+    updateMap(currentLat, currentLng, currentAcc);
+    resetLocBtn(); showToast('Đã lấy vị trí','success');
+  }, err=>{
+    let m='Không lấy được vị trí';
+    if(err.code===1) m='Vui lòng cấp quyền vị trí';
+    if(err.code===3) m='Hết thời gian — thử lại';
+    showToast(m,'error'); resetLocBtn();
+  }, {enableHighAccuracy:true, timeout:15000, maximumAge:0});
+}
 
-  function copyCoords() {
-    if (currentLat===null) { showToast('Chưa có toạ độ để sao chép', 'error'); return; }
-    const text = `${currentLat.toFixed(7)}, ${currentLng.toFixed(7)}`;
-    if (navigator.clipboard) navigator.clipboard.writeText(text).then(()=>showToast('Đã sao chép toạ độ','success'));
-    else { const el=document.createElement('textarea'); el.value=text; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); showToast('Đã sao chép toạ độ','success'); }
-  }
+function resetLocBtn() {
+  const btn=document.getElementById('btn-locate'); btn.disabled=false;
+  const sp=document.querySelector('.spinner');
+  if(sp) sp.outerHTML=`<svg id="loc-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>`;
+  document.getElementById('btn-locate-text').textContent='Làm mới vị trí';
+}
 
-  /* ---- Camera ---- */
-  function handlePhoto(input) {
-    const file = input.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      // Resize to max 800px to save storage
-      const img = new Image();
-      img.onload = () => {
-        const MAX = 800;
-        let w = img.width, h = img.height;
-        if (w > MAX || h > MAX) {
-          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-          else       { w = Math.round(w * MAX / h); h = MAX; }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        currentPhotoBase64 = canvas.toDataURL('image/jpeg', 0.75);
-        document.getElementById('preview-img').src = currentPhotoBase64;
-        document.getElementById('photo-preview').style.display = 'block';
-        showToast('Đã chọn ảnh', 'success');
-      };
-      img.src = e.target.result;
+function copyCoords() {
+  if(currentLat===null){showToast('Chưa có toạ độ','error');return;}
+  const t=`${currentLat.toFixed(7)}, ${currentLng.toFixed(7)}`;
+  if(navigator.clipboard) navigator.clipboard.writeText(t).then(()=>showToast('Đã sao chép','success'));
+  else{const el=document.createElement('textarea');el.value=t;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);showToast('Đã sao chép','success');}
+}
+
+// PHOTO
+function handlePhoto(input) {
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const MAX=800; let w=img.width,h=img.height;
+      if(w>MAX||h>MAX){if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}}
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      currentPhoto=c.toDataURL('image/jpeg',0.75);
+      document.getElementById('preview-img').src=currentPhoto;
+      document.getElementById('photo-preview').style.display='block';
+      showToast('Đã chọn ảnh','success');
     };
-    reader.readAsDataURL(file);
-    input.value = '';
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file); input.value='';
+}
+function removePhoto() { currentPhoto=null; document.getElementById('photo-preview').style.display='none'; }
+
+// IMPORT
+function importRecord() {
+  if(currentLat===null){showToast('Lấy vị trí GPS trước','error');return;}
+  const name=document.getElementById('point-name').value.trim();
+  const note=document.getElementById('note-input').value.trim();
+  const now=new Date();
+  const rec={ id:Date.now(), name:name||`Điểm ${(state.records[state.activeProject]||[]).length+1}`, lat:currentLat, lng:currentLng, acc:currentAcc, photo:currentPhoto, note, time:now.toLocaleString('vi-VN') };
+  if(!state.records[state.activeProject]) state.records[state.activeProject]=[];
+  state.records[state.activeProject].unshift(rec);
+  save(); renderTable(); renderMapMarkers();
+  document.getElementById('point-name').value='';
+  document.getElementById('note-input').value='';
+  removePhoto();
+  showToast('Đã lưu điểm','success');
+}
+
+// DELETE
+function deleteRecord(id) {
+  state.records[state.activeProject]=state.records[state.activeProject].filter(r=>r.id!==id);
+  save(); renderTable();
+}
+
+// CLEAR ALL
+function confirmClearAll() {
+  const recs=state.records[state.activeProject]||[];
+  if(recs.length===0){showToast('Không có dữ liệu','error');return;}
+  document.getElementById('modal-clear').classList.add('show');
+}
+function clearAll() {
+  state.records[state.activeProject]=[];
+  save(); renderTable(); closeModal('modal-clear');
+  showToast('Đã xoá tất cả','info');
+}
+
+// TABLE
+function renderTable() {
+  const tbody=document.getElementById('table-body');
+  const q=(document.getElementById('search-input').value||'').toLowerCase();
+  const all=state.records[state.activeProject]||[];
+  const recs=q ? all.filter(r=>(r.name||'').toLowerCase().includes(q)||(r.note||'').toLowerCase().includes(q)) : all;
+
+  document.getElementById('record-count').textContent=`${all.length} điểm`;
+  document.getElementById('btn-export').disabled=all.length===0;
+
+  if(recs.length===0){
+    tbody.innerHTML=`<tr><td colspan="9"><div class="empty-state">
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+      <p>${q?'Không tìm thấy kết quả':'Chưa có dữ liệu nào.<br>Lấy vị trí rồi nhấn Import.'}</p></div></td></tr>`;
+    return;
   }
 
-  function removePhoto() {
-    currentPhotoBase64 = null;
-    document.getElementById('photo-preview').style.display = 'none';
-    document.getElementById('preview-img').src = '';
-  }
+  tbody.innerHTML=recs.map((r,i)=>`
+    <tr>
+      <td>${all.length-all.indexOf(r)}</td>
+      <td class="name-col">${r.name||'—'}</td>
+      <td>${r.lat.toFixed(6)}</td>
+      <td>${r.lng.toFixed(6)}</td>
+      <td>${r.acc?Math.round(r.acc):'-'}</td>
+      <td>${r.photo?`<img class="thumb" src="${r.photo}" onclick="openLightbox(${r.id})">`:'<span class="no-photo">—</span>'}</td>
+      <td class="note-col" title="${r.note||''}">${r.note||'<span style="opacity:0.3">—</span>'}</td>
+      <td class="time-col">${r.time}</td>
+      <td><button class="btn-del" onclick="deleteRecord(${r.id})">✕</button></td>
+    </tr>`).join('');
+}
 
-  /* ---- Import ---- */
-  function importRecord() {
-    if (currentLat===null) { showToast('Lấy vị trí GPS trước', 'error'); return; }
-    const note = document.getElementById('note-input').value.trim();
-    const now = new Date();
-    records.unshift({ id: Date.now(), lat: currentLat, lng: currentLng, acc: currentAcc, photo: currentPhotoBase64, note, time: now.toLocaleString('vi-VN') });
-    save(); renderTable();
-    document.getElementById('note-input').value = '';
-    removePhoto();
-    showToast('Đã lưu vị trí vào bảng', 'success');
-  }
+// LIGHTBOX
+function openLightbox(id) {
+  const r=(state.records[state.activeProject]||[]).find(x=>x.id===id);
+  if(!r||!r.photo) return;
+  document.getElementById('lightbox-img').src=r.photo;
+  document.getElementById('lightbox').classList.add('show');
+}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('show'); }
 
-  function deleteRecord(id) {
-    records = records.filter(r => r.id !== id);
-    save(); renderTable(); showToast('Đã xoá', 'info');
-  }
+// EXPORT
+function exportExcel() {
+  const recs=state.records[state.activeProject]||[];
+  if(!recs.length){showToast('Không có dữ liệu','error');return;}
+  const ws=XLSX.utils.aoa_to_sheet([
+    ['STT','Tên điểm','Vĩ độ (Lat)','Kinh độ (Lng)','Độ chính xác (m)','Có ảnh','Ghi chú','Thời gian'],
+    ...recs.map((r,i)=>[recs.length-i, r.name||'', r.lat, r.lng, r.acc?Math.round(r.acc):'', r.photo?'Có':'Không', r.note||'', r.time])
+  ]);
+  ws['!cols']=[{wch:5},{wch:16},{wch:16},{wch:16},{wch:14},{wch:8},{wch:28},{wch:22}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,state.activeProject.substring(0,30));
+  const now=new Date();
+  XLSX.writeFile(wb,`GPS_${state.activeProject}_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.xlsx`);
+  showToast('Đã xuất Excel','success');
+}
 
-  /* ---- Table ---- */
-  function renderTable() {
-    const tbody = document.getElementById('table-body');
-    document.getElementById('record-count').textContent = `${records.length} điểm`;
-    document.getElementById('btn-export').disabled = records.length === 0;
-
-    if (records.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
-          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-          <circle cx="12" cy="9" r="2.5"/></svg>
-        <p>Chưa có dữ liệu nào.<br>Lấy vị trí rồi nhấn Import.</p></div></td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = records.map((r, i) => `
-      <tr>
-        <td>${records.length - i}</td>
-        <td>${r.lat.toFixed(7)}</td>
-        <td>${r.lng.toFixed(7)}</td>
-        <td>${r.acc ? Math.round(r.acc) : '-'}</td>
-        <td class="photo-col">${r.photo
-          ? `<img class="thumb" src="${r.photo}" onclick="openLightbox('${r.id}')" title="Xem ảnh">`
-          : `<span class="no-photo">—</span>`}</td>
-        <td class="note-col" title="${r.note||''}">${r.note||'<span style="color:#ccc">—</span>'}</td>
-        <td class="time-col">${r.time}</td>
-        <td><button class="btn-del" onclick="deleteRecord(${r.id})">✕</button></td>
-      </tr>`).join('');
-  }
-
-  /* ---- Lightbox ---- */
-  function openLightbox(id) {
-    const r = records.find(x => x.id == id);
-    if (!r || !r.photo) return;
-    document.getElementById('lightbox-img').src = r.photo;
-    document.getElementById('lightbox').classList.add('show');
-  }
-  function closeLightbox() { document.getElementById('lightbox').classList.remove('show'); }
-
-  /* ---- Export Excel ---- */
-  function exportExcel() {
-    if (records.length === 0) { showToast('Không có dữ liệu', 'error'); return; }
-    const wsData = [
-      ['STT','Vĩ độ (Lat)','Kinh độ (Lng)','Độ chính xác (m)','Có ảnh','Ghi chú','Thời gian'],
-      ...records.map((r,i) => [
-        records.length-i, r.lat, r.lng,
-        r.acc ? Math.round(r.acc) : '',
-        r.photo ? 'Có' : 'Không',
-        r.note||'', r.time
-      ])
-    ];
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws['!cols'] = [{wch:5},{wch:16},{wch:16},{wch:14},{wch:8},{wch:30},{wch:22}];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'GPS Data');
-    const now = new Date();
-    XLSX.writeFile(wb, `GPS_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.xlsx`);
-    showToast('Đã xuất file Excel', 'success');
-  }
-
-  renderTable();
+// INIT
+applyDark();
+renderProjects();
+renderTable();
+initMap();
+getLocation(); // Tự động lấy GPS khi mở app
 </script>
 </body>
 </html>
