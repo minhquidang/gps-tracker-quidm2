@@ -519,11 +519,11 @@ function handlePhoto(input) {
   reader.onload=e=>{
     const img=new Image();
     img.onload=()=>{
-      const MAX=800; let w=img.width,h=img.height;
+      const MAX=1200; let w=img.width,h=img.height;
       if(w>MAX||h>MAX){if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}}
       const c=document.createElement('canvas'); c.width=w; c.height=h;
       c.getContext('2d').drawImage(img,0,0,w,h);
-      currentPhoto=c.toDataURL('image/jpeg',0.75);
+      currentPhoto=c.toDataURL('image/jpeg',0.85);
       document.getElementById('preview-img').src=currentPhoto;
       document.getElementById('photo-preview').style.display='block';
       showToast('Đã chọn ảnh','success');
@@ -533,6 +533,54 @@ function handlePhoto(input) {
   reader.readAsDataURL(file); input.value='';
 }
 function removePhoto() { currentPhoto=null; document.getElementById('photo-preview').style.display='none'; }
+
+// WATERMARK — in thông tin lên ảnh
+function addWatermark(base64, rec) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.width; c.height = img.height;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+
+      const W = c.width, H = c.height;
+      const fs = Math.max(16, Math.round(W / 36));
+      const pad = Math.round(fs * 0.7);
+      const lineH = fs + pad * 0.8;
+
+      const lines = [
+        `${rec.lat.toFixed(7)}, ${rec.lng.toFixed(7)}`,
+        `Ten diem: ${rec.name}`,
+        rec.note ? `Ghi chu: ${rec.note}` : null,
+        `Du an: ${state.activeProject}`,
+        `${rec.time}`,
+        rec.acc ? `Do chinh xac: ~${Math.round(rec.acc)}m` : null,
+      ].filter(Boolean);
+
+      const boxH = lines.length * lineH + pad * 2;
+      const boxY = H - boxH - pad;
+
+      // Nền mờ
+      ctx.fillStyle = 'rgba(0,0,0,0.52)';
+      ctx.fillRect(pad / 2, boxY, W - pad, boxH + pad);
+
+      // Chữ trắng
+      ctx.font = `bold ${fs}px Arial, sans-serif`;
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.shadowColor = 'rgba(0,0,0,0.7)';
+      ctx.shadowBlur = 5;
+      ctx.textBaseline = 'top';
+
+      lines.forEach((line, i) => {
+        ctx.fillText(line, pad * 1.2, boxY + pad + i * lineH);
+      });
+
+      resolve(c.toDataURL('image/jpeg', 0.88));
+    };
+    img.src = base64;
+  });
+}
 
 // IMPORT
 const TG_TOKEN = '8801804415:AAHCXxHFLu6KvbjsHtdaXd6Au-a6TxLfDlg';
@@ -560,13 +608,14 @@ async function sendTelegram(rec) {
       body: JSON.stringify({ chat_id: TG_CHAT, text: msg, parse_mode: 'Markdown', disable_web_page_preview: false })
     });
 
-    // Gửi ảnh nếu có
+    // Gửi ảnh có watermark nếu có
     if (rec.photo) {
-      const blob = await (await fetch(rec.photo)).blob();
+      const watermarked = await addWatermark(rec.photo, rec);
+      const blob = await (await fetch(watermarked)).blob();
       const fd = new FormData();
       fd.append('chat_id', TG_CHAT);
       fd.append('photo', blob, 'photo.jpg');
-      fd.append('caption', `📷 Ảnh điểm: ${rec.name}`);
+      fd.append('caption', `📷 ${rec.name} — ${state.activeProject}`);
       await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendPhoto`, { method: 'POST', body: fd });
     }
 
