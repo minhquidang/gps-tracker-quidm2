@@ -534,6 +534,62 @@ function handlePhoto(input) {
 }
 function removePhoto() { currentPhoto=null; document.getElementById('photo-preview').style.display='none'; }
 
+// WATERMARK — in thông tin lên ảnh, trả về base64 mới
+function addWatermark(base64, rec) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth || img.width;
+      c.height = img.naturalHeight || img.height;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+
+      const W = c.width, H = c.height;
+      const fs = Math.max(18, Math.round(W / 28));
+      const pad = Math.round(fs * 0.8);
+      const lineH = fs * 1.55;
+
+      const lines = [
+        `Lat: ${rec.lat.toFixed(7)}`,
+        `Lng: ${rec.lng.toFixed(7)}`,
+        `Ten: ${rec.name}`,
+        rec.note ? `Ghi chu: ${rec.note}` : null,
+        `Du an: ${state.activeProject}`,
+        `Thoi gian: ${rec.time}`,
+        rec.acc ? `Do chinh xac: ~${Math.round(rec.acc)}m` : null,
+      ].filter(Boolean);
+
+      const boxH = lines.length * lineH + pad * 2.5;
+      const boxY = H - boxH;
+
+      // Vẽ nền đen mờ
+      ctx.save();
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, boxY, W, boxH);
+      ctx.restore();
+
+      // Vẽ chữ trắng
+      ctx.save();
+      ctx.font = `bold ${fs}px Arial, sans-serif`;
+      ctx.fillStyle = '#ffffff';
+      ctx.textBaseline = 'top';
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 6;
+      lines.forEach((line, i) => {
+        ctx.fillText(line, pad, boxY + pad + i * lineH);
+      });
+      ctx.restore();
+
+      resolve(c.toDataURL('image/jpeg', 0.90));
+    };
+    img.onerror = () => resolve(base64); // fallback nếu lỗi
+    img.src = base64;
+  });
+}
+
 // WATERMARK — in thông tin lên ảnh
 function addWatermark(base64, rec) {
   return new Promise(resolve => {
@@ -608,10 +664,9 @@ async function sendTelegram(rec) {
       body: JSON.stringify({ chat_id: TG_CHAT, text: msg, parse_mode: 'Markdown', disable_web_page_preview: false })
     });
 
-    // Gửi ảnh có watermark nếu có
+    // Gửi ảnh (đã có watermark) nếu có
     if (rec.photo) {
-      const watermarked = await addWatermark(rec.photo, rec);
-      const blob = await (await fetch(watermarked)).blob();
+      const blob = await (await fetch(rec.photo)).blob();
       const fd = new FormData();
       fd.append('chat_id', TG_CHAT);
       fd.append('photo', blob, 'photo.jpg');
@@ -637,7 +692,16 @@ async function importRecord() {
   const name=document.getElementById('point-name').value.trim();
   const note=document.getElementById('note-input').value.trim();
   const now=new Date();
-  const rec={ id:Date.now(), name:name||`Điểm ${(state.records[state.activeProject]||[]).length+1}`, lat:currentLat, lng:currentLng, acc:currentAcc, photo:currentPhoto, note, time:now.toLocaleString('vi-VN') };
+  const rec={ id:Date.now(), name:name||`Diem ${(state.records[state.activeProject]||[]).length+1}`, lat:currentLat, lng:currentLng, acc:currentAcc, photo:null, note, time:now.toLocaleString('vi-VN') };
+
+  // Thêm watermark vào ảnh trước khi lưu
+  if (currentPhoto) {
+    showToast('Đang xử lý ảnh…', 'info');
+    rec.photo = await addWatermark(currentPhoto, rec);
+    // Cập nhật preview để thấy watermark
+    document.getElementById('preview-img').src = rec.photo;
+  }
+
   if(!state.records[state.activeProject]) state.records[state.activeProject]=[];
   state.records[state.activeProject].unshift(rec);
   save(); renderTable(); renderMapMarkers();
